@@ -149,8 +149,10 @@
     <ClInclude Include="Array1D.h" />
     <ClInclude Include="MatrixMN.h" />
     <ClInclude Include="NeuralNetwork.h" />
-    <ClInclude Include="Vector2D.h" />
     <ClInclude Include="VectorND.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

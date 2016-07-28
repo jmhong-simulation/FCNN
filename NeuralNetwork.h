@@ -2,7 +2,6 @@
 
 #include <iostream>
 #include "Array1D.h"
-#include "ConventionalMacros.h"
 #include "MatrixMN.h"
 
 #define MAX2(a, b)							((a) > (b) ? (a) : (b))
@@ -16,15 +15,12 @@ public:
     int num_output_;
     int num_all_layers_; // num_all_layers_ = num_hidden_layers_ + 2
 
-    D   bias_;  // constant bias
-
-    D   eta_;   // learning rate
-    D   alpha_; // momentum term coefficient
+    D   bias_;	  // constant bias
+    D   alpha_;   // learning rate
 
     Array1D<VectorND<D> > layer_neuron_act_;         // layer_neuron_act_[0] = input layer, layer_neuron_act_[num_all_layers_-1] = output_layer, layer_neuron_act_[ix_layer][ix_neuron] = activation value
     Array1D<VectorND<D> > layer_neuron_grad_;        // gradient values for back propagation
     Array1D<MatrixMN<D> > weights_;                  // weights_[0] is between layer 0 and layer 1. 
-    Array1D<MatrixMN<D> > delta_weights_;            // for momentum
 
     VectorND<unsigned>    num_layer_acts_;           // The number of activation values of each layer. This includes bias.
     VectorND<unsigned>    layer_type_act_;           // The type of activation function of this layer. 0: sigmoid, 1: ReLU, etc.
@@ -59,8 +55,7 @@ public:
         num_all_layers_ = _num_hidden_layers + 2; // hidden layers + 1 input layer + 1 output layer
 
         bias_  = 1;
-        eta_   = 0.15;
-        alpha_ = 0.5;
+        alpha_   = 0.15;
 
         layer_type_act_.initialize(num_all_layers_, true);          // use sigmoid as default.
 
@@ -89,17 +84,7 @@ public:
 				weights_[l].values_[ix] = (D)rand() / RAND_MAX * 0.1;
         }
 
-        // Temporary array to store weight matrices from previous step for momentum term.
-        delta_weights_.initialize(num_all_layers_ - 1);
-        for (int l = 0; l < delta_weights_.num_elements_; l++)
-        {
-            // row x column = (dimension of next layer  - 1 for bias) x  (dimension of prev layer - this includes bias)
-            delta_weights_[l].initialize(layer_neuron_act_[l + 1].num_dimension_ - 1, layer_neuron_act_[l].num_dimension_);// +1 is for bias
-
-            // zero initialization
-            for (int ix = 0; ix < delta_weights_[l].num_rows_ * delta_weights_[l].num_cols_; ix++)
-                delta_weights_[l].values_[ix] = 0.0;
-        }
+        //TODO: Temporary array to store weight matrices from previous step for momentum term.
     }
 
     D getSigmoid(const D& x)
@@ -152,7 +137,7 @@ public:
             vector[d] = getLRELU(vector[d]);
     }
 
-    void feedForward()
+    void propForward()
     {
         for (int l = 0; l < weights_.num_elements_; l++)
         {
@@ -168,19 +153,17 @@ public:
         }
     }
 
-    void updateWeight(MatrixMN<D>& weight_matrix, MatrixMN<D>& delta_weight_matrix, VectorND<D>& next_layer_grad, VectorND<D>& prev_layer_act)
+    void updateWeight(MatrixMN<D>& weight_matrix, VectorND<D>& next_layer_grad, VectorND<D>& prev_layer_act)
     {
         for (int row = 0; row < weight_matrix.num_rows_; row++)
         {
             for (int col = 0; col < weight_matrix.num_cols_; col++)
             {
-                D &old_delta_w = delta_weight_matrix.getValue(row, col);
-
-                const D delta_w = eta_ * next_layer_grad[row] * prev_layer_act[col] + alpha_ * old_delta_w;
+                const D delta_w = alpha_ * next_layer_grad[row] * prev_layer_act[col];
 
                 weight_matrix.getValue(row, col) += delta_w;
 
-                old_delta_w = delta_w;           // update for the momentum term in next time step
+				//TODO: update momentum term
             }
         }
     }
@@ -237,7 +220,7 @@ public:
         for (int l = weights_.num_elements_ - 1; l >= 0; l--)
         {
             // correct weight values of matrix from layer l + 1 to l
-            updateWeight(weights_[l], delta_weights_[l], layer_neuron_grad_[l + 1], layer_neuron_act_[l]);
+            updateWeight(weights_[l], layer_neuron_grad_[l + 1], layer_neuron_act_[l]);
         }
     }
 

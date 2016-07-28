@@ -1,6 +1,32 @@
+#include <assert.h>
 #include "MatrixMN.h"
-//#include <atomic>
-#include <xmmintrin.h>
+
+#define SAFE_DELETE_ARRAY(pointer) if(pointer != nullptr){delete [] pointer; pointer=nullptr;}
+
+template<class T>
+void MatrixMN<T>::initialize(const int& _m, const int& _n, const bool init = true)
+{
+	const int num_all_old = num_rows_ * num_cols_;
+
+	num_rows_ = _m;
+	num_cols_ = _n;
+
+	SAFE_DELETE_ARRAY(values_);
+
+	const int num_all = num_rows_ * num_cols_;
+
+	if (num_all_old != num_all) // allocate memory if num_all is changed
+	{
+		// check if the matrix is too large
+		assert((double)num_rows_ * (double)num_cols_ <= (double)INT_MAX);
+
+		values_ = new T[num_all];
+
+		if (init == true)
+			for (int i = 0; i < num_all; i++)
+				values_[i] = (T)0;
+	}
+}
 
 template<class T>
 void MatrixMN<T>::multiply(const VectorND<T>& vector, VectorND<T>& result) const
@@ -8,65 +34,6 @@ void MatrixMN<T>::multiply(const VectorND<T>& vector, VectorND<T>& result) const
     assert(num_rows_ <= result.num_dimension_);
     assert(num_cols_ <= vector.num_dimension_);
 
-    // default implementation
-    //for (int row = 0; row < num_rows_; row++)
-    //{
-    //    result[row] = (T)0;
-
-    //    for (int col = 0; col < num_cols_; col++)
-    //    {
-    //        result[row] += getValue(row, col) * vector[col];
-
-    //        //if (std::isnan(result[row]) == true)
-    //        //{
-    //        //    std::cout << "NAN" << std::endl;
-    //        //    exit(1);
-    //        //}
-    //    }
-    //}
-
-    //for (int ix = 0; ix < rho4.ijk_res_; ix += 4)
-    //{
-    //    __m128 *r1 = (__m128*) &rho1.values_[ix];
-    //    __m128 *r2 = (__m128*) &rho2.values_[ix];
-    //    __m128 *r4 = (__m128*) &rho4.values_[ix];
-
-    //    *r4 = _mm_mul_ps(*r1, *r2);
-    //}
-
-    // float SSE2 implementation
-//#pragma omp parallel for
-//    for (int row = 0; row < num_rows_; row++)
-//    {
-//        int ix = row*num_cols_, col = 0;
-//        int loop_end = num_cols_ - num_cols_ % 4;
-//
-//        __m128 r1, r2, r3;
-//        __m128 r4 = _mm_setzero_ps();
-//
-//        for (; col < loop_end; col += 4, ix += 4)
-//        {
-//            r1 = _mm_loadu_ps(&values_[ix]);
-//            r2 = _mm_loadu_ps(&vector.values_[col]);
-//            r3 = _mm_mul_ps(r1, r2);
-//            r4 = _mm_add_ps(r4, r3);
-//        }
-//
-//        float temp[4];
-//        _mm_storeu_ps(temp, r4);
-//
-//        result.values_[row] = temp[0];
-//        result.values_[row] += temp[1];
-//        result.values_[row] += temp[2];
-//        result.values_[row] += temp[3];
-//
-//        for (; col < num_cols_; col++, ix++)
-//        {
-//             result.values_[row] += values_[ix] * vector.values_[col];
-//        }
-//    }
-
-#pragma omp parallel for
     for (int row = 0; row < num_rows_; row++)
     {
         result.values_[row] = (T)0;
@@ -90,79 +57,6 @@ void MatrixMN<T>::multiplyTransposed(const VectorND<T>& vector, VectorND<T>& res
     assert(num_rows_ <= vector.num_dimension_);
     assert(num_cols_ <= result.num_dimension_);
 
-    // default implementation
-    //for (int col = 0; col < num_cols_; col++)
-    //{
-    //    result[col] = (T)0;
-
-    //    for (int row = 0; row < num_rows_; row++)
-    //    {
-    //        result[col] += getValue(row, col) * vector[row];
-    //    }
-    //}
-
-    //TODO: remove racing problem (use local memory and add)
-//  std::atomic_int *result_values = (std::atomic_int*)result.values_;
-//#pragma omp parallel for
-//    for (int col = 0; col < num_cols_; col++)
-//        result.values_[col] = (T)0;
-//
-//#pragma omp parallel for
-//    for (int row = 0; row < num_rows_; row++)
-//    {
-//        int ix = row*num_cols_;
-//        const T temp = vector.values_[row];
-//        T temp2;
-//
-//        for (int col = 0; col < num_cols_; col++, ix++)
-//        {
-//            temp2 = temp;
-//            temp2 *= values_[ix];
-//
-//            //result.values_[col] += temp2;
-//            result_values[col] += temp2;
-//        }
-//    }
-
-    //const int two = 2 * num_cols_;
-    //const int three = 3 * num_cols_;
-    //const int four = 3 * num_cols_;
-
-    // slower
-//#pragma omp parallel for
-//    for (int col = 0; col < num_cols_; col++)
-//    {
-//        float temp[4];
-//
-//        int row = 0, ix = col;
-//        int loop_end = num_rows_ - num_rows_ % 4;
-//
-//        __m128 r1, r2, r3;
-//        __m128 r4 = _mm_setzero_ps();
-//
-//        for (; row < loop_end; row += 4, ix += four)
-//        {
-//            r1 = _mm_set_ps(values_[ix], values_[ix + num_cols_], values_[ix + two], values_[ix + three]);
-//            //__m128 r2 = _mm_set_ps(vector.values_[row], vector.values_[row + 1], vector.values_[row + 2], vector.values_[row + 3]);
-//            r2 = _mm_loadu_ps(&vector.values_[row]);
-//            r3 = _mm_mul_ps(r1, r2);
-//            r4 = _mm_add_ps(r4, r3);
-//        }
-//
-//        _mm_storeu_ps(temp, r4);
-//
-//        result.values_[col] = temp[0];
-//        result.values_[col] += temp[1];
-//        result.values_[col] += temp[2];
-//        result.values_[col] += temp[3];
-//
-//        for (; row < num_rows_; row++, ix += num_cols_)
-//        {
-//            result.values_[col] += values_[ix] * vector.values_[row];
-//        }
-//    }
-
-#pragma omp parallel for
     for (int col = 0; col < num_cols_; col++)
     {
         result.values_[col] = (T)0;
@@ -172,10 +66,48 @@ void MatrixMN<T>::multiplyTransposed(const VectorND<T>& vector, VectorND<T>& res
             result.values_[col] += values_[ix] * vector.values_[row];
         }
     }
+
+	//Note: You may transpose matrix and then multiply for better performance.
+	//See Eigen library. http://eigen.tuxfamily.org/index.php?title=Main_Page
 }
 
-template void MatrixMN<float>::multiply(const VectorND<float>& vector, VectorND<float>& result) const;
-template void MatrixMN<float>::multiplyTransposed(const VectorND<float>& vector, VectorND<float>& result) const;
+template<class T>
+void MatrixMN<T>::cout()
+{
+	for (int row = 0; row < num_rows_; row++)
+	{
+		for (int col = 0; col < num_cols_; col++)
+		{
+			std::cout << getValue(row, col) << " ";
+		}
 
-template void MatrixMN<double>::multiply(const VectorND<double>& vector, VectorND<double>& result) const;
-template void MatrixMN<double>::multiplyTransposed(const VectorND<double>& vector, VectorND<double>& result) const;
+		std::cout << std::endl;
+	}
+}
+
+template<class T>
+int MatrixMN<T>::get1DIndex(const int& row, const int& column) const
+{
+	assert(row >= 0);
+	assert(column >= 0);
+	assert(row < num_rows_);
+	assert(row < num_cols_);
+
+	// column = i, row = j
+	return column + row * num_cols_;        // data structure is for faster dot product of a row vector and VectorND input.
+}
+
+template<class T>
+T& MatrixMN<T>::getValue(const int& row, const int& column) const
+{
+	return values_[get1DIndex(row, column)];
+}
+
+template class MatrixMN<float>;
+template class MatrixMN<double>;
+
+//template void MatrixMN<float>::multiply(const VectorND<float>& vector, VectorND<float>& result) const;
+//template void MatrixMN<float>::multiplyTransposed(const VectorND<float>& vector, VectorND<float>& result) const;
+//
+//template void MatrixMN<double>::multiply(const VectorND<double>& vector, VectorND<double>& result) const;
+//template void MatrixMN<double>::multiplyTransposed(const VectorND<double>& vector, VectorND<double>& result) const;
