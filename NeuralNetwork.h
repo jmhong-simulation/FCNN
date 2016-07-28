@@ -23,8 +23,7 @@ public:
     Array1D<MatrixMN<D> > weights_;                  // weights_[0] is between layer 0 and layer 1. 
 
     VectorND<unsigned>    num_layer_acts_;           // The number of activation values of each layer. This includes bias.
-    VectorND<unsigned>    layer_type_act_;           // The type of activation function of this layer. 0: sigmoid, 1: ReLU, etc.
-    
+
 	NeuralNetwork();
 	NeuralNetwork(const int& _num_input, const int& _num_output, const int& _num_hidden_layers);
 

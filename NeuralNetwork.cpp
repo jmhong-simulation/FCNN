@@ -32,14 +32,14 @@ void NeuralNetwork::initialize(const VectorND<unsigned>& num_layer_acts_, const 
 	bias_ = 1;
 	alpha_ = 0.15;
 
-	layer_type_act_.initialize(num_all_layers_, true);          // use sigmoid as default.
+	//layer_type_act_.initialize(num_all_layers_, true);         // activation type: sigmoid, ReLU, LReLU, etc.
 
-																// initialize all layers
+	// initialize all layers
 	layer_neuron_act_.initialize(num_all_layers_);
 	for (int l = 0; l < num_all_layers_; ++l)
 	{
 		layer_neuron_act_[l].initialize(num_layer_acts_[l], true);
-		layer_neuron_act_[l][num_layer_acts_[l] - 1] = 1.0;     // bias
+		layer_neuron_act_[l][num_layer_acts_[l] - 1] = bias_;     // bias
 	}
 
 	// initialize to store gradient of layers
@@ -54,7 +54,7 @@ void NeuralNetwork::initialize(const VectorND<unsigned>& num_layer_acts_, const 
 		// row x column = (dimension of next layer  - 1 for bias) x  (dimension of prev layer - this includes bias)
 		weights_[l].initialize(layer_neuron_act_[l + 1].num_dimension_ - 1, layer_neuron_act_[l].num_dimension_);// -1 is for bias. y = W [x b]^T. Don't subtract 1 if you want [y b]^T = W [x b]^T.
 
-																												 // random initialization
+		// random initialization
 		for (int ix = 0; ix < weights_[l].num_rows_ * weights_[l].num_cols_; ix++)
 			weights_[l].values_[ix] = (D)rand() / RAND_MAX * 0.1;
 	}
@@ -120,17 +120,7 @@ void NeuralNetwork::propForward()
 		weights_[l].multiply(layer_neuron_act_[l], layer_neuron_act_[l + 1]);
 
 		// activate 
-		switch(layer_type_act_[l])
-		{
-		case 0:
-			applySigmoidToVector(layer_neuron_act_[l + 1]);
-			break;
-		case 1:
-			applyRELUToVector(layer_neuron_act_[l + 1]);
-			break;
-		default:
-			applyLRELUToVector(layer_neuron_act_[l + 1]);
-		}		
+		applyRELUToVector(layer_neuron_act_[l + 1]);
 	}
 }
 
@@ -140,33 +130,10 @@ void NeuralNetwork::propBackward(const VectorND<D>& target)
 	// calculate gradients of output layer
 	{const int l = layer_neuron_grad_.num_elements_ - 1;
 
-	switch (layer_type_act_[l])
+	for (int d = 0; d < layer_neuron_grad_[l].num_dimension_ - 1; d++)  // skip last component (bias)
 	{
-	case 0:
-		for (int d = 0; d < layer_neuron_grad_[l].num_dimension_ - 1; d++)  // skip last component (bias)
-		{
-			const D &output_value(layer_neuron_act_[l][d]);
-			layer_neuron_grad_[l][d] = (target[d] - output_value) * getSigmoidGradFromY(output_value);
-		}
-
-		break;
-
-	case 1:
-		if (layer_type_act_[l] == 1) // 1 for RELU
-			for (int d = 0; d < layer_neuron_grad_[l].num_dimension_ - 1; d++)  // skip last component (bias)
-			{
-				const D &output_value(layer_neuron_act_[l][d]);
-				layer_neuron_grad_[l][d] = (target[d] - output_value) * getRELUGradFromY(output_value);
-			}
-
-		break;
-
-	default:
-		for (int d = 0; d < layer_neuron_grad_[l].num_dimension_ - 1; d++)  // skip last component (bias)
-		{
-			const D &output_value(layer_neuron_act_[l][d]);
-			layer_neuron_grad_[l][d] = (target[d] - output_value) * getLRELUGradFromY(output_value);
-		}
+		const D &output_value(layer_neuron_act_[l][d]);
+		layer_neuron_grad_[l][d] = (target[d] - output_value) * getRELUGradFromY(output_value);
 	}}
 
 	// calculate gradients of hidden layers
@@ -174,24 +141,13 @@ void NeuralNetwork::propBackward(const VectorND<D>& target)
 	{
 		weights_[l].multiplyTransposed(layer_neuron_grad_[l + 1], layer_neuron_grad_[l]);
 
-		if (layer_type_act_[l] == 0)
-			for (int d = 0; d < layer_neuron_act_[l].num_dimension_ - 1; d++)   // skip last component (bias)
-			{
-				layer_neuron_grad_[l][d] *= getSigmoidGradFromY(layer_neuron_act_[l][d]);
-			}
-		else if (layer_type_act_[l] == 1)// 1 for RELU
-			for (int d = 0; d < layer_neuron_act_[l].num_dimension_ - 1; d++)   // skip last component (bias)
-			{
-				layer_neuron_grad_[l][d] *= getRELUGradFromY(layer_neuron_act_[l][d]);
-			}
-		else
-			for (int d = 0; d < layer_neuron_act_[l].num_dimension_ - 1; d++)   // skip last component (bias)
-			{
-				layer_neuron_grad_[l][d] *= getLRELUGradFromY(layer_neuron_act_[l][d]);
-			}
+		for (int d = 0; d < layer_neuron_act_[l].num_dimension_ - 1; d++)   // skip last component (bias)
+		{
+			layer_neuron_grad_[l][d] *= getRELUGradFromY(layer_neuron_act_[l][d]);
+		}
 	}
 
-	// update weights
+	// update weights after all gradients are calculated
 	for (int l = weights_.num_elements_ - 1; l >= 0; l--)
 	{
 		// correct weight values of matrix from layer l + 1 to l

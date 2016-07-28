@@ -8,15 +8,15 @@ void main()
 	x[0] = 0.0; x[1] = 0.0;
 
 	VectorND<D> y_target(2);
-	y_target[0] = 1.0f;
+	y_target[0] = 0.3f;
 
 	VectorND<D> y_temp(2);
 
 	NeuralNetwork nn_;
-	nn_.initialize(2, 1, 0);
-	nn_.alpha_ = 0.01;
+	nn_.initialize(2, 1, 1);
+	nn_.alpha_ = 0.1;
 
-	for (int i = 0; i < 10000; i++)
+	for (int i = 0; i < 100; i++)
 	{
 		nn_.setInputVector(x);
 		nn_.propForward();
