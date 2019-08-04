@@ -97,7 +97,7 @@ int MatrixMN<T>::get1DIndex(const int& row, const int& column) const
 	assert(row >= 0);
 	assert(column >= 0);
 	assert(row < num_rows_);
-	assert(row < num_cols_);
+	assert(column < num_cols_);
 
 	// column = i, row = j
 	return column + row * num_cols_;        // data structure is for faster dot product of a row vector and VectorND input.
